@@ -82,4 +82,31 @@ jobs:
 
       - name: Generate Android project
         run: |
-          npx cap
+          npx cap add android
+          npx capacitor-assets generate --android
+          npx cap sync android
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MARU-GHAR-ANDROID-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload build diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MARU-GHAR-BUILD-DIAGNOSTICS
+          path: |
+            android/**/*.log
+            android/app/build/reports/**
+          if-no-files-found: ignore
+          retention-days: 7
