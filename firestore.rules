@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.uid == 'yJYiuaUE3KXVLVuWqLyLRH5owQJ3';
+    }
+
+    match /listings/{listingId} {
+      // Public visitors can read only approved listings. The authenticated admin can review all listings.
+      allow read: if isAdmin() || resource.data.status == 'approved';
+
+      // All public/owner submissions must be pending and tied to the current authenticated submitter.
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly([
+          'ownerName','ownerPhone','type','purpose','location','price','description',
+          'photos','status','createdAt','submitterUid'
+        ])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.submitterUid == request.auth.uid
+        && request.resource.data.ownerName is string
+        && request.resource.data.ownerName.size() >= 2
+        && request.resource.data.ownerName.size() <= 80
+        && request.resource.data.ownerPhone is string
+        && request.resource.data.ownerPhone.size() >= 10
+        && request.resource.data.ownerPhone.size() <= 16
+        && request.resource.data.type in ['ઘર','ફ્લેટ','દુકાન','રેસિડેન્શિયલ પ્લોટ','કોમર્શિયલ પ્લોટ','ઓફિસ','વેરહાઉસ']
+        && request.resource.data.purpose in ['ભાડે','વેચાણ']
+        && request.resource.data.location is string
+        && request.resource.data.location.size() >= 2
+        && request.resource.data.location.size() <= 120
+        && request.resource.data.photos is list
+        && request.resource.data.photos.size() <= 5;
+
+      // Only the known admin account can approve/reject a submission or delete a listing.
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status','reviewedAt','reviewedBy'])
+        && request.resource.data.status in ['pending','approved','rejected']
+        && request.resource.data.reviewedBy == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+  }
+}
